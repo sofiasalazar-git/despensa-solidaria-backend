@@ -1,0 +1,21 @@
+{
+  "name": "despensa-solidaria-backend",
+  "version": "1.0.0",
+  "description": "API REST de Despensa Solidaria: control de inventario de alimentos para un comedor comunitario (Etapa 3: Backend).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "db:reset": "node src/db/reset.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "dotenv": "^18.0.8",
+    "express": "^4.21.2",
+    "mongodb": "^6.21.0"
+  }
+}

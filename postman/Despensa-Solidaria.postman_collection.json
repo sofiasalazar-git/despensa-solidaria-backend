@@ -1,0 +1,2747 @@
+{
+  "info": {
+    "name": "Despensa Solidaria - API REST (Etapa 3)",
+    "description": "Colección de pruebas del backend de Despensa Solidaria (11 endpoints). EJECUTAR EN ORDEN con el Collection Runner (o newman): las carpetas se alimentan entre sí mediante variables de colección (runId, p1Id, p2Id, p3Id, mov1Id, mov2Id). La primera solicitud genera un runId nuevo, por lo que la colección se puede ejecutar varias veces seguidas. Requiere el entorno \"Despensa Solidaria - Local\" (variable baseUrl).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Productos",
+      "description": "Crear, listar, buscar, filtrar, detalle, actualizar, duplicados y alertas (por vencer y bajo stock).",
+      "item": [
+        {
+          "name": "1.1 Crear producto válido (Arroz)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pad = (n) => String(n).padStart(2, \"0\");",
+                  "const f = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + \"-\" + pad(d.getMonth() + 1) + \"-\" + pad(d.getDate()); };",
+                  "pm.collectionVariables.set(\"runId\", Date.now().toString(36));",
+                  "pm.collectionVariables.set(\"hoy\", f(0));",
+                  "pm.collectionVariables.set(\"hoyMas3\", f(3));",
+                  "pm.collectionVariables.set(\"hoyMas60\", f(60));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Stock inicial 0, activo y con los campos del contrato\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockActual).to.eql(0);",
+                  "  pm.expect(j.activo).to.eql(true);",
+                  "  pm.expect(j.stockMinimo).to.eql(5);",
+                  "  pm.expect(j.nombre).to.eql(\"Arroz PM-\" + pm.collectionVariables.get(\"runId\"));",
+                  "  pm.expect(j.id).to.be.a(\"number\");",
+                  "  pm.expect(j).to.include.keys(\"id\",\"nombre\",\"categoria\",\"unidad\",\"stockActual\",\"stockMinimo\",\"fechaVencimiento\",\"activo\",\"createdAt\");",
+                  "});",
+                  "pm.collectionVariables.set('p1Id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            },
+            "description": "Primer paso del flujo: genera un identificador de ejecución (runId) y las fechas de prueba para poder repetir la colección sin nombres duplicados.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Arroz PM-{{runId}}\",\n  \"categoria\": \"Granos\",\n  \"unidad\": \"kg\",\n  \"stockMinimo\": 5,\n  \"fechaVencimiento\": \"{{hoyMas60}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.2 Crear producto que vence pronto (Leche)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.collectionVariables.set('p2Id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Leche PM-{{runId}}\",\n  \"categoria\": \"Lácteos\",\n  \"unidad\": \"litros\",\n  \"stockMinimo\": 2,\n  \"fechaVencimiento\": \"{{hoyMas3}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.3 Crear producto para desactivar (Sal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Sin fecha de vencimiento\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.fechaVencimiento).to.eql(null);",
+                  "});",
+                  "pm.collectionVariables.set('p3Id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Sal PM-{{runId}}\",\n  \"categoria\": \"Otros\",\n  \"unidad\": \"kg\",\n  \"stockMinimo\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.4 Crear producto inválido: sin nombre → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoria\": \"Granos\",\n  \"unidad\": \"kg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.5 Crear producto inválido: unidad no permitida → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"unidad\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Prueba unidad {{runId}}\",\n  \"categoria\": \"Granos\",\n  \"unidad\": \"libras\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.6 Crear producto inválido: stockMinimo negativo → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Prueba mínimo {{runId}}\",\n  \"categoria\": \"Granos\",\n  \"unidad\": \"kg\",\n  \"stockMinimo\": -1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.7 Crear producto inválido: fecha mal formada → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Prueba fecha {{runId}}\",\n  \"categoria\": \"Granos\",\n  \"unidad\": \"kg\",\n  \"fechaVencimiento\": \"30/11/2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.8 Crear producto duplicado (mismo nombre) → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(409);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"Ya existe un producto con ese nombre.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"ARROZ PM-{{runId}}\",\n  \"categoria\": \"Granos\",\n  \"unidad\": \"kg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.9 Listar productos activos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Es una lista, todos activos y contiene el Arroz creado\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.be.an(\"array\");",
+                  "  pm.expect(j.every(p => p.activo === true)).to.eql(true);",
+                  "  pm.expect(j.map(p => p.id)).to.include(Number(pm.collectionVariables.get(\"p1Id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.10 Buscar por nombre (buscar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Devuelve solo productos cuyo nombre contiene el texto\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.length).to.eql(3);",
+                  "  pm.expect(j.every(p => p.nombre.toLowerCase().includes(pm.collectionVariables.get(\"runId\")))).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos?buscar={{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ],
+              "query": [
+                {
+                  "key": "buscar",
+                  "value": "{{runId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.11 Filtrar por categoría + buscar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Solo el Arroz (Granos)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.length).to.eql(1);",
+                  "  pm.expect(j[0].categoria).to.eql(\"Granos\");",
+                  "  pm.expect(j[0].id).to.eql(Number(pm.collectionVariables.get(\"p1Id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos?categoria=Granos&buscar={{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ],
+              "query": [
+                {
+                  "key": "categoria",
+                  "value": "Granos"
+                },
+                {
+                  "key": "buscar",
+                  "value": "{{runId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.12 Detalle de un producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Devuelve el producto pedido\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.id).to.eql(Number(pm.collectionVariables.get(\"p1Id\")));",
+                  "  pm.expect(j.categoria).to.eql(\"Granos\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p1Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.13 Detalle de producto inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(404);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"No se encontró el producto con id 999999.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "999999"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.14 Detalle con id inválido (abc) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "abc"
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.15 Actualizar producto (PUT) sin tocar el stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"stockMinimo cambió a 6 pero el stock actual sigue en 0\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockMinimo).to.eql(6);",
+                  "  pm.expect(j.stockActual).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p1Id}}"
+              ]
+            },
+            "description": "Se envía stockActual: 999 a propósito: el servidor debe ignorarlo (el stock solo cambia con movimientos).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Arroz PM-{{runId}}\",\n  \"categoria\": \"Granos\",\n  \"unidad\": \"kg\",\n  \"stockMinimo\": 6,\n  \"fechaVencimiento\": \"{{hoyMas60}}\",\n  \"stockActual\": 999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.16 Actualizar con nombre de otro producto → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(409);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p1Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Leche PM-{{runId}}\",\n  \"categoria\": \"Granos\",\n  \"unidad\": \"kg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.17 Actualizar producto inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(404);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/productos/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "999999"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"No existe {{runId}}\",\n  \"categoria\": \"Otros\",\n  \"unidad\": \"kg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "1.18 Productos por vencer (dias=7)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Incluye la Leche (vence en 3 días) y no el Arroz (vence en 60)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  const ids = j.map(p => p.id);",
+                  "  pm.expect(ids).to.include(Number(pm.collectionVariables.get(\"p2Id\")));",
+                  "  pm.expect(ids).to.not.include(Number(pm.collectionVariables.get(\"p1Id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/por-vencer?dias=7",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "por-vencer"
+              ],
+              "query": [
+                {
+                  "key": "dias",
+                  "value": "7"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.19 Productos por vencer: dias=0 → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/por-vencer?dias=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "por-vencer"
+              ],
+              "query": [
+                {
+                  "key": "dias",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.20 Productos por vencer: dias=abc → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/por-vencer?dias=abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "por-vencer"
+              ],
+              "query": [
+                {
+                  "key": "dias",
+                  "value": "abc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "1.21 Productos con bajo stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"El Arroz (stock 0 ≤ mínimo 6) aparece en la lista\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.map(p => p.id)).to.include(Number(pm.collectionVariables.get(\"p1Id\")));",
+                  "  pm.expect(j.every(p => p.stockActual <= p.stockMinimo)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/bajo-stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "bajo-stock"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Movimientos y regla de negocio",
+      "description": "Entradas, salidas, regla \"nunca stock negativo\" (409), validaciones, filtros y corrección con PATCH.",
+      "item": [
+        {
+          "name": "2.1 Registrar ENTRADA de 20 kg",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Movimiento creado con stock resultante 20\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.tipo).to.eql(\"ENTRADA\");",
+                  "  pm.expect(j.cantidad).to.eql(20);",
+                  "  pm.expect(j.stockResultante).to.eql(20);",
+                  "  pm.expect(j.productoId).to.eql(Number(pm.collectionVariables.get(\"p1Id\")));",
+                  "  pm.expect(j.fecha).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$/);",
+                  "});",
+                  "pm.collectionVariables.set('mov1Id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 20,\n  \"responsable\": \"María (prueba)\",\n  \"observacion\": \"Donación de tienda\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.2 Verificar que la entrada aumentó el stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"El stock actual es 20\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockActual).to.eql(20);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p1Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.3 El Arroz ya no está en bajo stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Con 20 > 6 sale de la lista de bajo stock\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.map(p => p.id)).to.not.include(Number(pm.collectionVariables.get(\"p1Id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/bajo-stock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "bajo-stock"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.4 Registrar SALIDA válida de 5 kg",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Stock resultante 15\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockResultante).to.eql(15);",
+                  "});",
+                  "pm.collectionVariables.set('mov2Id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"SALIDA\",\n  \"cantidad\": 5,\n  \"responsable\": \"Mria (prueba)\",\n  \"observacion\": \"Almuerzo del sabado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.5 Verificar que la salida disminuyó el stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"El stock actual es 15\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockActual).to.eql(15);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p1Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.6 SALIDA mayor al stock disponible → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(409);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"No hay existencia suficiente.\");",
+                  "});",
+                  "pm.test(\"El mensaje indica el stock disponible y la cantidad solicitada\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.mensaje).to.include(\"Disponible: 15 kg\");",
+                  "  pm.expect(j.mensaje).to.include(\"solicitado: 100 kg\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "description": "Regla de negocio principal: no se puede sacar más de lo que hay.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"SALIDA\",\n  \"cantidad\": 100,\n  \"responsable\": \"María (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.7 La salida rechazada NO modificó el stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"El stock actual es 15\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockActual).to.eql(15);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p1Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.8 La salida rechazada NO quedó en el historial",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Solo existe la salida válida de 5 kg\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.length).to.eql(1);",
+                  "  pm.expect(j[0].cantidad).to.eql(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos?productoId={{p1Id}}&tipo=SALIDA",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "productoId",
+                  "value": "{{p1Id}}"
+                },
+                {
+                  "key": "tipo",
+                  "value": "SALIDA"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.9 Cantidad igual a 0 → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"La cantidad debe ser mayor que 0.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 0,\n  \"responsable\": \"María (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.10 Cantidad negativa → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": -5,\n  \"responsable\": \"María (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.11 Tipo inválido (TRANSFERENCIA) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"ENTRADA o SALIDA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"TRANSFERENCIA\",\n  \"cantidad\": 1,\n  \"responsable\": \"María (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.12 Sin responsable → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"responsable\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.13 Producto inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(404);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"No se encontró el producto con id 999999.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": 999999,\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 1,\n  \"responsable\": \"María (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.14 El stock sigue en 15 tras los intentos inválidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"El stock actual es 15\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockActual).to.eql(15);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p1Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.15 Listar historial de movimientos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Es una lista y contiene la entrada registrada\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.be.an(\"array\");",
+                  "  pm.expect(j.map(m => m.id)).to.include(Number(pm.collectionVariables.get(\"mov1Id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.16 Filtrar por productoId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Dos movimientos del Arroz, el más reciente primero\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.length).to.eql(2);",
+                  "  pm.expect(j.every(m => m.productoId === Number(pm.collectionVariables.get(\"p1Id\")))).to.eql(true);",
+                  "  pm.expect(j[0].id).to.eql(Number(pm.collectionVariables.get(\"mov2Id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos?productoId={{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "productoId",
+                  "value": "{{p1Id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.17 Filtrar por tipo=ENTRADA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Solo la entrada\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.length).to.eql(1);",
+                  "  pm.expect(j[0].tipo).to.eql(\"ENTRADA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos?productoId={{p1Id}}&tipo=ENTRADA",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "productoId",
+                  "value": "{{p1Id}}"
+                },
+                {
+                  "key": "tipo",
+                  "value": "ENTRADA"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.18 Filtrar por rango de fechas (desde/hasta = hoy)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Los 2 movimientos de hoy\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.length).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos?productoId={{p1Id}}&desde={{hoy}}&hasta={{hoy}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "productoId",
+                  "value": "{{p1Id}}"
+                },
+                {
+                  "key": "desde",
+                  "value": "{{hoy}}"
+                },
+                {
+                  "key": "hasta",
+                  "value": "{{hoy}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.19 Filtrar por fechas futuras → lista vacía",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Sin resultados\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos?productoId={{p1Id}}&desde=2999-01-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "productoId",
+                  "value": "{{p1Id}}"
+                },
+                {
+                  "key": "desde",
+                  "value": "2999-01-01"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.20 Filtro inválido: desde posterior a hasta → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos?desde=2026-12-31&hasta=2026-01-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "desde",
+                  "value": "2026-12-31"
+                },
+                {
+                  "key": "hasta",
+                  "value": "2026-01-01"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.21 Filtro inválido: tipo=XYZ → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos?tipo=XYZ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "tipo",
+                  "value": "XYZ"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.22 Detalle de un movimiento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Devuelve el movimiento pedido\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.id).to.eql(Number(pm.collectionVariables.get(\"mov1Id\")));",
+                  "  pm.expect(j.observacion).to.eql(\"Donación de tienda\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov1Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.23 Detalle de movimiento inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(404);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"No se encontró el movimiento con id 999999.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "999999"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.24 Corregir responsable y observación (PATCH)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Se corrigieron los textos y NO cambió cantidad ni tipo\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.responsable).to.eql(\"María (prueba)\");",
+                  "  pm.expect(j.observacion).to.eql(\"Almuerzo del sábado\");",
+                  "  pm.expect(j.cantidad).to.eql(5);",
+                  "  pm.expect(j.tipo).to.eql(\"SALIDA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov2Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"responsable\": \"María (prueba)\",\n  \"observacion\": \"Almuerzo del sábado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.25 PATCH intentando cambiar la cantidad → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"cantidad\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov2Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.26 PATCH intentando cambiar el tipo → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"tipo\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov2Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"ENTRADA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.27 PATCH intentando cambiar el producto → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"productoId\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov2Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p2Id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.28 El movimiento conserva cantidad, tipo y producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Sin cambios indebidos\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.cantidad).to.eql(5);",
+                  "  pm.expect(j.tipo).to.eql(\"SALIDA\");",
+                  "  pm.expect(j.productoId).to.eql(Number(pm.collectionVariables.get(\"p1Id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov2Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.29 PATCH a movimiento inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(404);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "999999"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"responsable\": \"Ana\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.30 PATCH con cuerpo vacío → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(400);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov2Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.31 DELETE de un movimiento no está permitido → 405",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 405\", function () { pm.response.to.have.status(405); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(405);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test(\"Informa los métodos permitidos\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Allow\")).to.include(\"PATCH\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov2Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.32 El movimiento sigue en el historial tras el intento de borrado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos/{{mov2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos",
+                "{{mov2Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.33 SALIDA exacta de todo el stock (15 kg) → 201 y stock 0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Stock resultante 0\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockResultante).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"SALIDA\",\n  \"cantidad\": 15,\n  \"responsable\": \"María (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.34 Con stock 0, otra salida → 409 (nunca negativo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(409);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"Disponible: 0 kg\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p1Id}},\n  \"tipo\": \"SALIDA\",\n  \"cantidad\": 1,\n  \"responsable\": \"María (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "2.35 El stock final es 0 (no negativo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"El stock actual es 0\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.stockActual).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p1Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p1Id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Desactivación de productos",
+      "description": "DELETE lógico y su efecto sobre listados, detalle y movimientos.",
+      "item": [
+        {
+          "name": "3.1 Registrar ENTRADA de 10 kg en la Sal (antes de desactivar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 201\", function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p3Id}},\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 10,\n  \"responsable\": \"Ana (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "3.2 Desactivar producto (DELETE) → 204 sin cuerpo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 204\", function () { pm.response.to.have.status(204); });",
+                  "pm.test(\"La respuesta no trae cuerpo\", function () {",
+                  "  pm.expect(pm.response.text()).to.eql(\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p3Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.3 El producto desactivado ya no aparece en el listado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Lista vacía\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos?buscar=Sal%20PM-{{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ],
+              "query": [
+                {
+                  "key": "buscar",
+                  "value": "Sal%20PM-{{runId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.4 El detalle conserva el producto con activo=false",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Desactivado pero con su stock\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.activo).to.eql(false);",
+                  "  pm.expect(j.stockActual).to.eql(10);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/{{p3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "{{p3Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.5 Listar desactivados (activo=false)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Aparece la Sal\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.map(p => p.id)).to.include(Number(pm.collectionVariables.get(\"p3Id\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos?activo=false&buscar={{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos"
+              ],
+              "query": [
+                {
+                  "key": "activo",
+                  "value": "false"
+                },
+                {
+                  "key": "buscar",
+                  "value": "{{runId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.6 Movimiento sobre producto desactivado → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(409);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "  pm.expect(j.mensaje).to.include(\"El producto está desactivado.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{p3Id}},\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 1,\n  \"responsable\": \"Ana (prueba)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "3.7 El historial del producto desactivado se conserva",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Sigue la entrada de 10 kg\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.length).to.eql(1);",
+                  "  pm.expect(j[0].cantidad).to.eql(10);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/movimientos?productoId={{p3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "movimientos"
+              ],
+              "query": [
+                {
+                  "key": "productoId",
+                  "value": "{{p3Id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.8 Desactivar producto inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Código HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error en formato uniforme (status, error, mensaje, timestamp)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('status', 'error', 'mensaje', 'timestamp');",
+                  "  pm.expect(j.status).to.eql(404);",
+                  "  pm.expect(j.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/productos/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "productos",
+                "999999"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code !== 204) {",
+          "  pm.test(\"La respuesta es JSON (Content-Type: application/json)\", function () {",
+          "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api"
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "hoy",
+      "value": ""
+    },
+    {
+      "key": "hoyMas3",
+      "value": ""
+    },
+    {
+      "key": "hoyMas60",
+      "value": ""
+    },
+    {
+      "key": "p1Id",
+      "value": ""
+    },
+    {
+      "key": "p2Id",
+      "value": ""
+    },
+    {
+      "key": "p3Id",
+      "value": ""
+    },
+    {
+      "key": "mov1Id",
+      "value": ""
+    },
+    {
+      "key": "mov2Id",
+      "value": ""
+    }
+  ]
+}
