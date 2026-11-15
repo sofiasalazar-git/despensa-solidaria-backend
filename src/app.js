@@ -5,6 +5,8 @@ const { crearRutasProductos } = require('./routes/productoRoutes');
 const { crearRutasMovimientos } = require('./routes/movimientoRoutes');
 const { crearManejadorErrores } = require('./middleware/manejadorErrores');
 const { ApiError } = require('./errors/ApiError');
+const { crearRutasAuth } = require('./routes/authRoutes');
+const { requerirAutenticacion } = require('./middleware/requerirAutenticacion');
 
 function crearApp(db, opciones = {}) {
   const { productoService, movimientoService } = crearServicios(db);
@@ -17,13 +19,18 @@ function crearApp(db, opciones = {}) {
     res.status(200).json({
       nombre: 'Despensa Solidaria API',
       estado: 'en marcha',
-      endpoints: ['/api/productos', '/api/movimientos'],
+      endpoints: ['/api/auth/register', '/api/auth/login', '/api/productos', '/api/movimientos'],
     });
   });
 
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', db: 'conectada' });
   });
+
+  if (opciones.jwtSecret) {
+    app.use('/api/auth', crearRutasAuth(db, opciones));
+    app.use('/api', requerirAutenticacion(opciones.jwtSecret));
+  }
 
   app.use('/api/productos', crearRutasProductos(productoService));
   app.use('/api/movimientos', crearRutasMovimientos(movimientoService));

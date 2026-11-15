@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: despensa-solidaria-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: despensa_solidaria
+      - key: SEED_ON_START
+        value: "true"
+      - key: JWT_SECRET
+        sync: false
+      - key: AUTH_INITIAL_EMAIL
+        sync: false
+      - key: AUTH_INITIAL_PASSWORD
+        sync: false
+      - key: JWT_TTL
+        value: 8h

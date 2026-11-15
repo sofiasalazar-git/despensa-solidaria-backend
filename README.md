@@ -109,6 +109,17 @@ Prueba rápida (otra terminal o el navegador): <http://localhost:8080/api/produc
 
 La URL base <http://localhost:8080/api> devuelve un resumen de estado y los recursos disponibles; para consultar inventario, use `/api/productos`.
 
+## 5.1 Publicar la API en Render
+
+El archivo `render.yaml` deja configurado el servicio web para Render. Para publicarlo:
+
+1. Suba este proyecto a un repositorio GitHub y conecte ese repositorio en Render con **New → Blueprint**.
+2. Antes de crear el servicio, configure una base de datos MongoDB Atlas y cree un usuario de base de datos. Después de crear el servicio Render, copie sus rangos de salida desde **Connect → Outbound** y agréguelos a la lista de acceso de red de Atlas. Render documenta los rangos por servicio y región; no abra el acceso a `0.0.0.0/0` salvo que acepte explícitamente ese riesgo.
+3. En Render, defina `MONGO_URI` con la URI de conexión de Atlas, incluyendo usuario y contraseña. Guárdela como secreto y no la escriba en el repositorio. `MONGO_DB_NAME` y `SEED_ON_START` ya tienen valores por defecto en `render.yaml`.
+4. Al terminar el despliegue, Render asignará una URL HTTPS como `https://despensa-solidaria-api.onrender.com`. La API estará disponible en esa URL más `/api`; compruebe `/api/health` y `/api/productos`.
+
+Render asigna el puerto mediante `PORT` y el servidor ya escucha en `0.0.0.0`. El plan gratuito puede suspender el servicio después de 15 minutos sin solicitudes y la primera petición posterior puede tardar cerca de un minuto. Además, el sistema de archivos de ese plan es temporal; por eso los datos de la API deben persistir en MongoDB Atlas, no en archivos locales. Consulte las [limitaciones actuales de Render Free](https://render.com/docs/free) y los [rangos de salida de Render](https://render.com/docs/outbound-ip-addresses).
+
 ## 6. URL base de la API
 
 `http://localhost:8080/api`
@@ -124,10 +135,29 @@ La URL base <http://localhost:8080/api> devuelve un resumen de estado y los recu
 | `MONGO_URI` | `mongodb://127.0.0.1:27017` | URI de conexión local o de Atlas |
 | `MONGO_DB_NAME` | `despensa_solidaria` | Nombre de la base de datos |
 | `SEED_ON_START` | `true` | `false` = no cargar datos de prueba si la BD está vacía |
+| `JWT_SECRET` | — | Secreto aleatorio de al menos 32 bytes para firmar tokens de sesión |
+| `JWT_TTL` | `8h` | Vigencia del token (por ejemplo `30m`, `8h`, `1d`) |
+| `AUTH_INITIAL_EMAIL` | — | Opcional: correo de una cuenta inicial, si se desea crearla al arrancar |
+| `AUTH_INITIAL_PASSWORD` | — | Opcional: contraseña inicial (mínimo 10 caracteres), se guarda como hash scrypt |
+
+### Inicio de sesión
+
+Antes de arrancar, configura `JWT_SECRET` en `.env` (en Render, como variable secreta). Si defines juntas `AUTH_INITIAL_EMAIL` y `AUTH_INITIAL_PASSWORD`, el primer inicio crea esa cuenta; ambas variables se pueden omitir para crear la primera cuenta desde la app. El backend no vuelve a sembrar la cuenta inicial cuando ya existen usuarios.
+
+Genera `JWT_SECRET` con `openssl rand -hex 32` y reemplaza todos los valores de ejemplo de `.env.example`. En Postman, inicia sesión con `POST /api/auth/login` y usa el token recibido como autorización **Bearer Token** para probar los demás endpoints.
+
+La app permite crear cuentas con nombre, correo y contraseña; `POST /api/auth/register` las guarda en MongoDB, con correo único y contraseña protegida con hash scrypt. Luego envía `POST /api/auth/login` con `{ "email": "...", "password": "..." }`. Si son correctos recibe un token Bearer válido durante `JWT_TTL`. Las rutas de productos y movimientos requieren `Authorization: Bearer <token>`; registro, login, `/api` y `/api/health` son públicos. La app guarda el token cifrado con Android Keystore y lo elimina si el servidor responde que venció o no es válido.
 
 Ejemplos: Linux/macOS `PORT=9000 npm start` · Windows PowerShell `$env:PORT=9000; npm start` · Windows CMD `set PORT=9000 && npm start`.
 
-## 8. Los 11 endpoints
+## 8. Endpoints de la API
+
+La API tiene 11 endpoints de inventario y 2 endpoints públicos de autenticación. Todas las rutas de productos y movimientos requieren un token Bearer obtenido al iniciar sesión.
+
+| Método y ruta | Descripción | Respuestas |
+|---|---|---|
+| `POST /api/auth/register` | Crea una cuenta con nombre, correo único y contraseña | 201, 400, 409 |
+| `POST /api/auth/login` | Valida correo y contraseña y devuelve un token Bearer | 200, 400, 401 |
 
 Todas las peticiones y respuestas usan JSON (`Content-Type: application/json`), campos en camelCase y fechas ISO 8601 (`2026-11-30`, `2026-09-28T10:30:00`).
 

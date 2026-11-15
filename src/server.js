@@ -2,10 +2,17 @@ const config = require('./config/config');
 const { abrirBaseDeDatos } = require('./db/database');
 const { sembrarSiEstaVacia } = require('./db/seed');
 const { crearApp } = require('./app');
+const { asegurarUsuarioInicial } = require('./db/usuarioInicial');
+const { duracionSegundos } = require('./auth/seguridad');
 
 async function iniciar() {
+  if (Buffer.byteLength(config.jwtSecret, 'utf8') < 32) {
+    throw new Error('Configura JWT_SECRET con una clave aleatoria de al menos 32 bytes.');
+  }
+  duracionSegundos(config.tokenDuracion);
   const db = await abrirBaseDeDatos(config.mongoUri, config.mongoDbName);
   try {
+    await asegurarUsuarioInicial(db, config.usuarioInicial);
     if (config.cargarDatosDePrueba && await sembrarSiEstaVacia(db)) {
       console.log('Base de datos vacía: se cargaron datos de prueba ficticios.');
     }
@@ -14,7 +21,7 @@ async function iniciar() {
     throw error;
   }
 
-  const app = crearApp(db);
+  const app = crearApp(db, { jwtSecret: config.jwtSecret, tokenDuracion: config.tokenDuracion });
   const servidor = app.listen(config.puerto, config.host, () => {
     console.log('Despensa Solidaria - API REST en marcha');
     console.log(`  URL base : http://localhost:${config.puerto}/api`);
