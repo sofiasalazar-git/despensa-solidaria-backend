@@ -7,4 +7,10 @@ module.exports = {
   mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017',
   mongoDbName: process.env.MONGO_DB_NAME || 'despensa_solidaria',
   cargarDatosDePrueba: process.env.SEED_ON_START !== 'false',
+  jwtSecret: process.env.JWT_SECRET || '',
+  tokenDuracion: process.env.JWT_TTL || '8h',
+  usuarioInicial: {
+    email: process.env.AUTH_INITIAL_EMAIL || '',
+    password: process.env.AUTH_INITIAL_PASSWORD || '',
+  },
 };
