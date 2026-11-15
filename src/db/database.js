@@ -12,10 +12,7 @@ async function abrirBaseDeDatos(uri, nombreBaseDeDatos) {
     const db = cliente.db(nombreBaseDeDatos);
     await asegurarColeccion(db, 'productos', {
       bsonType: 'object',
-      required: [
-        '_id', 'nombre', 'nombre_normalizado', 'categoria', 'categoria_normalizada', 'unidad',
-        'stock_actual', 'stock_minimo', 'fecha_vencimiento', 'activo', 'created_at',
-      ],
+      required: ['_id', 'nombre', 'nombre_normalizado', 'categoria', 'categoria_normalizada', 'unidad', 'stock_actual', 'stock_minimo', 'fecha_vencimiento', 'activo', 'created_at'],
       properties: {
         _id: { bsonType: 'int', minimum: 1 },
         nombre: { bsonType: 'string', minLength: 2, maxLength: 100 },
@@ -37,12 +34,7 @@ async function abrirBaseDeDatos(uri, nombreBaseDeDatos) {
         _id: { bsonType: 'int', minimum: 1 },
         producto_id: { bsonType: 'int', minimum: 1 },
         tipo: { enum: ['ENTRADA', 'SALIDA'] },
-        cantidad: {
-          bsonType: ['double', 'int', 'long', 'decimal'],
-          minimum: 0,
-          exclusiveMinimum: true,
-          maximum: 99999999.99,
-        },
+        cantidad: { bsonType: ['double', 'int', 'long', 'decimal'], minimum: 0, exclusiveMinimum: true, maximum: 99999999.99 },
         fecha: { bsonType: 'string' },
         responsable: { bsonType: 'string', minLength: 1, maxLength: 80, pattern: '\\S' },
         observacion: { bsonType: ['string', 'null'], maxLength: 200 },
@@ -51,30 +43,37 @@ async function abrirBaseDeDatos(uri, nombreBaseDeDatos) {
     await asegurarColeccion(db, 'counters', {
       bsonType: 'object',
       required: ['_id', 'valor'],
+      properties: { _id: { bsonType: 'string' }, valor: { bsonType: 'int', minimum: 0 } },
+    });
+    await asegurarColeccion(db, 'usuarios', {
+      bsonType: 'object',
+      required: ['_id', 'email', 'password_hash', 'created_at'],
       properties: {
-        _id: { bsonType: 'string' },
-        valor: { bsonType: 'int', minimum: 0 },
+        _id: { bsonType: 'string', minLength: 3, maxLength: 254 },
+        email: { bsonType: 'string', minLength: 3, maxLength: 254 },
+        nombre: { bsonType: 'string', minLength: 2, maxLength: 80 },
+        password_hash: { bsonType: 'string', minLength: 20 },
+        created_at: { bsonType: 'string' },
       },
     });
     const productos = db.collection('productos');
     const movimientos = db.collection('movimientos');
-
+    const usuarios = db.collection('usuarios');
     await Promise.all([
       productos.createIndex({ nombre_normalizado: 1 }, { unique: true }),
       productos.createIndex({ activo: 1, fecha_vencimiento: 1 }),
       productos.createIndex({ activo: 1, stock_actual: 1, stock_minimo: 1 }),
       movimientos.createIndex({ producto_id: 1, fecha: -1, _id: -1 }),
+      usuarios.createIndex({ email: 1 }, { unique: true }),
     ]);
-
     return {
       client: cliente,
       db,
       productos,
       movimientos,
       counters: db.collection('counters'),
-      async close() {
-        await cliente.close();
-      },
+      usuarios,
+      async close() { await cliente.close(); },
     };
   } catch (error) {
     await cliente.close();
