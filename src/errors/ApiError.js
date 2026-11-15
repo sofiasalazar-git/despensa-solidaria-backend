@@ -11,6 +11,7 @@ class ApiError extends Error {
 module.exports = {
   ApiError,
   solicitudIncorrecta: (m) => new ApiError(400, m), // 400
+  noAutorizado: (m = 'Debes iniciar sesión para continuar.') => new ApiError(401, m), // 401
   noEncontrado: (m) => new ApiError(404, m),        // 404
   conflicto: (m) => new ApiError(409, m),           // 409
 };
