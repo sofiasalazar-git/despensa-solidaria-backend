@@ -15,6 +15,17 @@ function crearApp(db, opciones = {}) {
   app.disable('x-powered-by');
   app.use(express.json()); // peticiones en JSON
 
+  // La URL pública del servicio de Render abre la raíz. Responder aquí evita
+  // que parezca que el servidor está caído cuando solo se visita "/".
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      nombre: 'Despensa Solidaria API',
+      estado: 'en marcha',
+      documentacion: 'Consulta /api para ver los recursos disponibles.',
+      salud: '/api/health',
+    });
+  });
+
   app.get('/api', (req, res) => {
     res.status(200).json({
       nombre: 'Despensa Solidaria API',
