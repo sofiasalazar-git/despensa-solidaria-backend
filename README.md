@@ -6,7 +6,6 @@ Estudiante: Laura Sofia Salazar Sandoval
 
 API REST propia con base de datos persistente. Permite administrar los productos de la bodega de un comedor comunitario, registrar entradas y salidas y consultar alertas de productos por vencer o con bajo stock. La regla de negocio principal se valida **en el servidor**: una salida nunca puede dejar el stock en negativo.
 
-> Todos los datos son ficticios (nombres de productos y personas de prueba).
 
 ---
 
